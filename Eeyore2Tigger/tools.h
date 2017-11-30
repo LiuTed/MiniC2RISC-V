@@ -14,7 +14,8 @@ struct node
 	bitmap live;
 	int t, id;//type
 	vector<const char*> p;//params
-	node(){lineno = yylineno;}
+	bool dead;
+	node(){lineno = yylineno; dead = false;}
 };
 
 extern vector<node*> cfc;//control flow chart (node list in fact)

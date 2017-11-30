@@ -77,7 +77,8 @@ extern int yydebug;
     INFUNC = 287,
     OUTFUNC = 288,
     DYOP = 289,
-    UNOP = 290
+    UNOP = 290,
+    DYOPI = 291
   };
 #endif
 /* Tokens.  */
@@ -114,6 +115,7 @@ extern int yydebug;
 #define OUTFUNC 288
 #define DYOP 289
 #define UNOP 290
+#define DYOPI 291
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
@@ -126,7 +128,7 @@ union YYSTYPE
 	int op;
 	struct node *NPtr;
 
-#line 130 "y.tab.h" /* yacc.c:1909  */
+#line 132 "y.tab.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;

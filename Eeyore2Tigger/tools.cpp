@@ -107,6 +107,24 @@ static inline bool invol(int color)
 {
 	return (0 <= color && color < involregnum) || color == regnum-1;
 }
+static int dyop(int a, int b, const char* op, int lineno)
+{
+	switch(reinterpret_cast<size_t>(op))
+	{
+		case ADD:return a+b;
+		case SUB:return a-b;
+		case MUL:return a*b;
+		case DIV:if(b==0){ERR(lineno, "divided by zero!");} return a/b;
+		case MOD:if(b==0){ERR(lineno, "mod by zero!");} return a%b;
+		case AND:return a&&b;
+		case OR:return a||b;
+		case LT:return a<b;
+		case GT:return a>b;
+		case EQ:return a==b;
+		case NE:return a!=b;
+		default:return 0;
+	}
+}
 
 static void analyze1()//test region and generate basic informations
 {
@@ -177,8 +195,11 @@ static void analyze1()//test region and generate basic informations
 				f.vars.insert(tmp);
 				f.idx2var.push_back(tmp.name);
 			}
+			map<const char*, int, less<const char*> > constant;
+			constant.clear();
 			do
 			{
+				cfc[i+1]->dead = cfc[i]->dead;
 				if(cfc[i]->t == VAR)
 				{
 					_variable tmp;
@@ -207,9 +228,143 @@ static void analyze1()//test region and generate basic informations
 						ERR(cfc[i]->lineno, "label l%d has been defined previously", l.name);
 					}
 					f.labels.insert(l);
+					cfc[i]->dead = false;
+					cfc[i+1]->dead = false;
+					constant.clear();
+				}
+				else if(cfc[i]->t == VEI)
+				{
+					constant[cfc[i]->p.front()] = atoi(cfc[i]->p.back());
+				}
+				else if(cfc[i]->t == VEV)
+				{
+					auto res = constant.find(cfc[i]->p.back());
+					if(res != constant.end())
+					{
+						constant[cfc[i]->p[0]] = res->second;
+						cfc[i]->t = VEI;
+						char *buf = new char[32];
+						snprintf(buf, 32, "%d", res->second);
+						cfc[i]->p[1] = buf;
+					}
+					else
+					{
+						constant.erase(cfc[i]->p[0]);
+					}
+				}
+				else if(cfc[i]->t == DYOP)
+				{
+					auto res = constant.find(cfc[i]->p[3]);
+					if(res != constant.end())
+					{
+						int c2 = res->second;
+						res = constant.find(cfc[i]->p[1]);
+						if(res != constant.end())
+						{
+							int c1 = res->second;
+							int c = dyop(c1, c2, cfc[i]->p[2], cfc[i]->lineno);
+							constant[cfc[i]->p[0]] = c;
+							cfc[i]->t = VEI;
+							char *buf = new char[32];
+							snprintf(buf, 32, "%d", c);
+							cfc[i]->p.assign({cfc[i]->p.front(), buf});
+						}
+						else
+						{
+							constant.erase(cfc[i]->p[0]);
+							if(cfc[i]->p[2] == (char*)ADD || cfc[i]->p[2] == (char*)LT)
+							{
+								cfc[i]->t = DYOPI;
+								cfc[i]->p[3] = (char*)c2;
+							}
+							else if(cfc[i]->p[2] == (char*)SUB)
+							{
+								cfc[i]->t = DYOPI;
+								cfc[i]->p[2] = (char*)ADD;
+								cfc[i]->p[3] = (char*)(-c2);
+							}
+						}
+					}
+					else
+					{
+						constant.erase(cfc[i]->p[0]);
+						res = constant.find(cfc[i]->p[1]);
+						if(res != constant.end())
+						{
+							int c1 = res->second;
+							if(cfc[i]->p[2] == (char*)ADD || cfc[i]->p[2] == (char*)GT)
+							{
+								cfc[i]->t = DYOPI;
+								if(cfc[i]->p[2] == (char*)GT) cfc[i]->p[2] = (char*)LT;
+								cfc[i]->p[1] = cfc[i]->p[3];
+								cfc[i]->p[3] = (char*)c1;
+							}
+						}
+					}
+				}
+				else if(cfc[i]->t == UNOP)
+				{
+					auto res = constant.find(cfc[i]->p[2]);
+					if(res != constant.end())
+					{
+						int c = res->second;
+						if(cfc[i]->p[1] == (char*)NOT) c = !c;
+						else if(cfc[i]->p[1] == (char*)SUB) c = -c;
+						cfc[i]->t = VEI;
+						char *buf = new char[32];
+						snprintf(buf, 32, "%d", c);
+						cfc[i]->p.assign({cfc[i]->p[0], buf});
+						constant[cfc[i]->p[0]] = c;
+					}
+					else
+					{
+						constant.erase(cfc[i]->p.front());
+					}
+				}
+				else if(cfc[i]->t == IF)
+				{
+					auto res = constant.find(cfc[i]->p[2]);
+					if(res != constant.end())
+					{
+						int c2 = res->second;
+						res = constant.find(cfc[i]->p[0]);
+						if(res != constant.end())
+						{
+							int c1 = res->second;
+							int c = dyop(c1, c2, cfc[i]->p[1], cfc[i]->lineno);
+							if(c)
+							{
+								cfc[i+1]->dead = true;
+								cfc[i]->t = GOTO;
+								cfc[i]->p.assign({cfc[i]->p.back()});
+							}
+						}
+					}
+				}
+				else if(cfc[i]->t == GOTO)
+				{
+					cfc[i+1]->dead = true;
+					constant.clear();
+				}
+				else if(cfc[i]->t == RETURN)
+				{
+					cfc[i+1]->dead = true;
+				}
+				else if(cfc[i]->t == CALL)
+				{
+					constant.erase(cfc[i]->p[0]);
+					for(auto& j : globalvarlist)
+					{
+						constant.erase(j.name);
+					}
+				}
+				else if(cfc[i]->t == VEA)
+				{
+					constant.erase(cfc[i]->p[0]);
 				}
 				i++;
 			}while(i<cfc.size() && cfc[i]->t != OUTFUNC);
+			cfc[i]->dead = false;
 			if(i >= cfc.size())
 			{
 				ERR(n.lineno, "function %s without ending", n.p[0]);
@@ -355,6 +510,20 @@ static void analyze2()//liveness
 							ERR(n.lineno, "unknown variable %s", var.name);
 						newlive.set(res->index);
 						var.name = n.p.back();
+						res = func.vars.find(var);
+						if(res == func.vars.end())
+							ERR(n.lineno, "unknown variable %s", var.name);
+						newlive.set(res->index);
+						break;
+					}
+					case DYOPI:
+					{
+						var.name = n.p[0];
+						auto res = func.vars.find(var);
+						if(res == func.vars.end())
+							ERR(n.lineno, "unknown variable %s", var.name);
+						newlive.clear(res->index);
+						var.name = n.p[1];
 						res = func.vars.find(var);
 						if(res == func.vars.end())
 							ERR(n.lineno, "unknown variable %s", var.name);
@@ -682,12 +851,15 @@ static void analyze5()//gen code
 		savess(f);
 		vector<const char*> para;
 		para.clear();
+		_variable var;
+		_label label;
+		decltype(f.vars.find(var)) res;
 		for(int i = f.startat + 1; i < f.endat; i++)
 		{
 			node &n = *cfc[i];
-			_variable var;
-			_label label;
-			decltype(f.vars.find(var)) res;
+
+			if(cfc[i]->dead) continue;
+
 			switch(n.t)
 			{
 				case GOTO:
@@ -782,6 +954,41 @@ static void analyze5()//gen code
 					}
 					else result = regnames[res->color];
 					printf("%s = %s %s %s\n", result, reg1, ops[t2c(n.p[2])], reg2);
+					if(res->color >= regnum)
+					{
+						if(res->length > 0)
+							ERR(n.lineno, "trying to assign a int/array to array");
+						printf("store %s %d\n", result, res->color-regnum);
+					}
+					else if(res->color < 0)
+					{
+						if(res->length > 0)
+							ERR(n.lineno, "trying to assign a int/array to array");
+						printf("loadaddr v%d %s\n", res->startat, sw2);
+						printf("%s [0] = %s\n", sw2, result);
+					}
+					break;
+				}
+				case DYOPI:
+				{
+					const char *reg1, *result;
+					var.name = n.p[1];
+					res = f.vars.find(var);
+					if(!inreg(res->color))
+					{
+						loadsw(*res, sw1);
+						reg1 = sw1;
+					}
+					else reg1 = regnames[res->color];
+
+					var.name = n.p[0];
+					res = f.vars.find(var);
+					if(!inreg(res->color))
+					{
+						result = sw1;
+					}
+					else result = regnames[res->color];
+					printf("%s = %s %s %d\n", result, reg1, ops[t2c(n.p[2])], (int)reinterpret_cast<size_t>(n.p[3]));
 					if(res->color >= regnum)
 					{
 						if(res->length > 0)
@@ -894,6 +1101,8 @@ static void analyze5()//gen code
 				{
 					var.name = n.p[0];
 					res = f.vars.find(var);
+					if(atoi(n.p[1]) == 0) n.p[1] = x0;
+					if(cfc[i+1]->live.test(res->index) != 1) continue;
 					if(inreg(res->color))
 						printf("%s = %s\n", regnames[res->color], n.p[1]);
 					else if(res->color >= regnum)
@@ -915,21 +1124,6 @@ static void analyze5()//gen code
 				}
 				case RETURN:
 				{
-					bool flag = false;
-					for(int j = i-1; j > f.startat; j--)
-					{
-						if(cfc[j]->t == LABEL)
-						{
-							flag = false;
-							break;
-						}
-						else if(cfc[j]->t == RETURN)
-						{
-							flag = true;
-							break;
-						}
-					}
-					if(flag) break;
 					var.name = n.p[0];
 					res = f.vars.find(var);
 					loadvar(*res, a0);

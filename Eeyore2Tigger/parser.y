@@ -25,7 +25,7 @@ const char* x0 = "x0";
 %token VAR CALL END GOTO PARAM RETURN IF
 %token NL
 
-%token AEV VEA VEI VEV INFUNC OUTFUNC DYOP UNOP
+%token AEV VEA VEI VEV INFUNC OUTFUNC DYOP UNOP DYOPI
 
 %type<op> OP1 OP2 LOP
 %type<NPtr> Expr GExpr VarDecl
@@ -63,7 +63,7 @@ FuncBody:
 ;
 
 Rval:
-  INTEGER {if(!strcmp($1,"0")) {delete[] $1; $1=x0;} node *ptr = new node; ptr->t = VEI; ptr->p.assign({imm,$1}); cfc.push_back(ptr); $$=imm;}
+  INTEGER {node *ptr = new node; ptr->t = VEI; ptr->p.assign({imm,$1}); cfc.push_back(ptr); $$=imm;}
 | Lval
 ;
 
@@ -73,7 +73,7 @@ Lval:
 ;
 
 GExpr:
-  Lval '=' INTEGER {if(!strcmp($3,"0")){delete[] $3; $3=x0;} $$ = new node; $$->t = VEI; $$->p.assign({$1,$3});}
+  Lval '=' INTEGER {$$ = new node; $$->t = VEI; $$->p.assign({$1,$3});}
 | {$$ = nullptr;}
 ;
 

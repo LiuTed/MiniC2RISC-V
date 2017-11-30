@@ -1073,7 +1073,8 @@ static void analyze5()//gen code
 					res = f.vars.find(var);
 					var.name = n.p[1];
 					auto res2 = f.vars.find(var);
-					if(res->color == res2->color) break;
+					if(res->color == res2->color && res->color >= 0) break;
+					if(res->color < 0 && !strcmp(res->name, res2->name)) break;
 					if(!inreg(res2->color))
 					{
 						loadsw(*res2, sw1);
@@ -1102,7 +1103,7 @@ static void analyze5()//gen code
 					var.name = n.p[0];
 					res = f.vars.find(var);
 					if(atoi(n.p[1]) == 0) n.p[1] = x0;
-					if(cfc[i+1]->live.test(res->index) != 1) continue;
+					if(cfc[i+1]->live.test(res->index) != 1 && strcmp(res->belongto, "global")) break;
 					if(inreg(res->color))
 						printf("%s = %s\n", regnames[res->color], n.p[1]);
 					else if(res->color >= regnum)

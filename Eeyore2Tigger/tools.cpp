@@ -718,54 +718,79 @@ static void analyze5()//gen code
 				}
 				case UNOP:
 				{
+					const char *reg1, *result;
 					var.name = n.p[2];
 					res = f.vars.find(var);
-					loadsw(*res, sw1);
-					printf("%s = %s%s\n", sw1, ops[t2c(n.p[1])], sw1);
+					if(!inreg(res->color))
+					{
+						loadsw(*res, sw1);
+						reg1 = sw1;
+					}
+					else reg1 = regnames[res->color];
+
 					var.name = n.p[0];
 					res = f.vars.find(var);
-					if(inreg(res->color))
-						printf("%s = %s\n", regnames[res->color], sw1);
-					else if(res->color >= regnum)
+					if(!inreg(res->color))
+						result = sw1;
+					else result = regnames[res->color];
+
+					printf("%s = %s%s\n", result, ops[t2c(n.p[1])], reg1);
+					if(res->color >= regnum)
 					{
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
-						printf("store %s %d\n", sw1, res->color-regnum);
+						printf("store %s %d\n", result, res->color-regnum);
 					}
-					else
+					else if(res->color < 0)
 					{
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("loadaddr v%d %s\n", res->startat, sw2);
-						printf("%s [0] = %s\n", sw2, sw1);
+						printf("%s [0] = %s\n", sw2, result);
 					}
 					break;
 				}
 				case DYOP:
 				{
+					const char *reg1, *reg2, *result;
 					var.name = n.p[1];
 					res = f.vars.find(var);
-					loadsw(*res, sw1);
+					if(!inreg(res->color))
+					{
+						loadsw(*res, sw1);
+						reg1 = sw1;
+					}
+					else reg1 = regnames[res->color];
+
 					var.name = n.p[3];
 					res = f.vars.find(var);
-					loadsw(*res, sw2);
-					printf("%s = %s %s %s\n", sw1, sw1, ops[t2c(n.p[2])], sw2);
+					if(!inreg(res->color))
+					{
+						loadsw(*res, sw2);
+						reg2 = sw2;
+					}
+					else reg2 = regnames[res->color];
+
 					var.name = n.p[0];
 					res = f.vars.find(var);
-					if(inreg(res->color))
-						printf("%s = %s\n", regnames[res->color], sw1);
-					else if(res->color >= regnum)
+					if(!inreg(res->color))
+					{
+						result = sw1;
+					}
+					else result = regnames[res->color];
+					printf("%s = %s %s %s\n", result, reg1, ops[t2c(n.p[2])], reg2);
+					if(res->color >= regnum)
 					{
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
-						printf("store %s %d\n", sw1, res->color-regnum);
+						printf("store %s %d\n", result, res->color-regnum);
 					}
-					else
+					else if(res->color < 0)
 					{
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("loadaddr v%d %s\n", res->startat, sw2);
-						printf("%s [0] = %s\n", sw2, sw1);
+						printf("%s [0] = %s\n", sw2, result);
 					}
 					break;
 				}
@@ -821,25 +846,31 @@ static void analyze5()//gen code
 				}
 				case VEV:
 				{
+					const char *reg1;
 					var.name = n.p[1];
 					res = f.vars.find(var);
-					loadsw(*res, sw1);
+					if(!inreg(res->color))
+					{
+						loadsw(*res, sw1);
+						reg1 = sw1;
+					}
+					else reg1 = regnames[res->color];
 					var.name = n.p[0];
 					res = f.vars.find(var);
 					if(inreg(res->color))
-						printf("%s = %s\n", regnames[res->color], sw1);
+						printf("%s = %s\n", regnames[res->color], reg1);
 					else if(res->color >= regnum)
 					{
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
-						printf("store %s %d\n", sw1, res->color-regnum);
+						printf("store %s %d\n", reg1, res->color-regnum);
 					}
 					else
 					{
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("loadaddr v%d %s\n", res->startat, sw2);
-						printf("%s [0] = %s\n", sw2, sw1);
+						printf("%s [0] = %s\n", sw2, reg1);
 					}
 					break;
 				}
@@ -879,7 +910,8 @@ static void analyze5()//gen code
 				{
 					var.name = n.p[0];
 					res = f.vars.find(var);
-					printf("loadaddr v0 %s\n", sw1);
+					if(cfc[i-1]->t != PARAM)
+						printf("loadaddr v0 %s\n", sw1);
 					if(inreg(res->color))
 						printf("%s [%ld] = %s\n", sw1, 4*para.size(), regnames[res->color]);
 					else if(res->color >= regnum)
@@ -936,7 +968,7 @@ static void analyze5()//gen code
 						}
 					}
 					//TODO: send params
-					if(para.size()>0) printf("loadaddr v0 %s\n", sw1);
+					if(para.size()>0 && cfc[i-1]->t != PARAM) printf("loadaddr v0 %s\n", sw1);
 					for(int j = 0; j < para.size(); j++)
 					{
 						printf("%s = %s [%d]\n", regnames[a0+j], sw1, 4*j);

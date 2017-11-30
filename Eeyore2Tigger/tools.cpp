@@ -370,6 +370,9 @@ static void analyze2()//liveness
 						break;
 					}
 					case RETURN:
+					{
+						newlive.reset();
+					}
 					case PARAM:
 					{
 						var.name = n.p.front();
@@ -796,13 +799,19 @@ static void analyze5()//gen code
 				}
 				case AEV:
 				{
+					const char *reg2;
 					var.name = n.p[0];
 					res = f.vars.find(var);
 					loadsw(*res, sw1);
 					var.name = n.p[2];
 					res = f.vars.find(var);
-					loadsw(*res, sw2);
-					printf("%s = %s + %s\n", sw1, sw1, sw2);
+					if(!inreg(res->color))
+					{
+						loadsw(*res, sw2);
+						reg2 = sw2;
+					}
+					else reg2 = regnames[res->color];
+					printf("%s = %s + %s\n", sw1, sw1, reg2);
 					var.name = n.p[1];
 					res = f.vars.find(var);
 					if(inreg(res->color))
@@ -816,13 +825,19 @@ static void analyze5()//gen code
 				}
 				case VEA:
 				{
+					const char *reg2;
 					var.name = n.p[1];
 					res = f.vars.find(var);
 					loadsw(*res, sw1);
 					var.name = n.p[2];
 					res = f.vars.find(var);
-					loadsw(*res, sw2);
-					printf("%s = %s + %s\n", sw1, sw1, sw2);
+					if(!inreg(res->color))
+					{
+						loadsw(*res, sw2);
+						reg2 = sw2;
+					}
+					else reg2 = regnames[res->color];
+					printf("%s = %s + %s\n", sw1, sw1, reg2);
 					var.name = n.p[0];
 					res = f.vars.find(var);
 					if(inreg(res->color))
@@ -847,16 +862,17 @@ static void analyze5()//gen code
 				case VEV:
 				{
 					const char *reg1;
-					var.name = n.p[1];
-					res = f.vars.find(var);
-					if(!inreg(res->color))
-					{
-						loadsw(*res, sw1);
-						reg1 = sw1;
-					}
-					else reg1 = regnames[res->color];
 					var.name = n.p[0];
 					res = f.vars.find(var);
+					var.name = n.p[1];
+					auto res2 = f.vars.find(var);
+					if(res->color == res2->color) break;
+					if(!inreg(res2->color))
+					{
+						loadsw(*res2, sw1);
+						reg1 = sw1;
+					}
+					else reg1 = regnames[res2->color];
 					if(inreg(res->color))
 						printf("%s = %s\n", regnames[res->color], reg1);
 					else if(res->color >= regnum)
@@ -865,7 +881,7 @@ static void analyze5()//gen code
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("store %s %d\n", reg1, res->color-regnum);
 					}
-					else
+					else if(res->color < 0)
 					{
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
@@ -899,6 +915,21 @@ static void analyze5()//gen code
 				}
 				case RETURN:
 				{
+					bool flag = false;
+					for(int j = i-1; j > f.startat; j--)
+					{
+						if(cfc[j]->t == LABEL)
+						{
+							flag = false;
+							break;
+						}
+						else if(cfc[j]->t == RETURN)
+						{
+							flag = true;
+							break;
+						}
+					}
+					if(flag) break;
 					var.name = n.p[0];
 					res = f.vars.find(var);
 					loadvar(*res, a0);

@@ -283,6 +283,10 @@ static void analyze1()//test region and generate basic informations
 								cfc[i]->p[2] = (char*)ADD;
 								cfc[i]->p[3] = (char*)(-c2);
 							}
+							if(cfc[i]->p[2] == (char*)ADD && cfc[i]->p[3] == (char*)0)
+							{
+								cfc[i]->t = NOP;
+							}
 						}
 					}
 					else
@@ -422,6 +426,8 @@ static void analyze2()//liveness
 				bitmap newlive(cfc[i+1]->live);
 				_variable var;
 				_label label;
+				if(!cfc[i]->dead)
+				{
 				switch(n.t)
 				{
 					case GOTO:
@@ -562,6 +568,7 @@ static void analyze2()//liveness
 					}
 					default:break;
 				}
+				}
 				if(!(newlive == n.live))
 				{
 					n.live = newlive;
@@ -675,8 +682,8 @@ void analyze4()//open stack for each function
 			if(v.length > 0 && strcmp(v.belongto, "global"))//local array
 			{
 				_variable& ref = const_cast<_variable&>(v);
+				ref.color = f.stacksize + regnum;
 				f.stacksize += v.length/4;
-				ref.color = f.stacksize + regnum - 1;
 			}
 		}
 		for(int i = f.startat + 1; i < f.endat; i++)
@@ -830,7 +837,7 @@ static int t2c(const char* t)
 
 static void analyze5()//gen code
 {
-	printf("v0 = malloc 32\n");//used for save parameters
+	printf("v0 = malloc 64\n");//used for save parameters
 	for(auto& v : globalvarlist)
 	{
 		if(v.length > 0)
@@ -1139,14 +1146,14 @@ static void analyze5()//gen code
 					if(cfc[i-1]->t != PARAM)
 						printf("loadaddr v0 %s\n", sw1);
 					if(inreg(res->color))
-						printf("%s [%ld] = %s\n", sw1, 4*para.size(), regnames[res->color]);
+						printf("%s [%ld] = %s\n", sw1, 8*para.size(), regnames[res->color]);
 					else if(res->color >= regnum)
 					{
 						if(res->length > 0)
 							printf("loadaddr %d %s\n", res->color-regnum, sw2);
 						else
 							printf("load %d %s\n", res->color-regnum, sw2);
-						printf("%s [%ld] = %s\n", sw1, 4*para.size(), sw2);
+						printf("%s [%ld] = %s\n", sw1, 8*para.size(), sw2);
 					}
 					else
 					{
@@ -1154,7 +1161,7 @@ static void analyze5()//gen code
 							printf("loadaddr v%d %s\n", res->startat, sw2);
 						else
 							printf("load v%d %s\n", res->startat, sw2);
-						printf("%s [%ld] = %s\n", sw1, 4*para.size(), sw2);
+						printf("%s [%ld] = %s\n", sw1, 8*para.size(), sw2);
 					}
 					para.push_back(n.p[0]);
 					break;
@@ -1197,7 +1204,7 @@ static void analyze5()//gen code
 					if(para.size()>0 && cfc[i-1]->t != PARAM) printf("loadaddr v0 %s\n", sw1);
 					for(int j = 0; j < para.size(); j++)
 					{
-						printf("%s = %s [%d]\n", regnames[a0+j], sw1, 4*j);
+						printf("%s = %s [%d]\n", regnames[a0+j], sw1, 8*j);
 					}
 					printf("call %s\n", n.p[1]);
 					var.name = n.p[0];

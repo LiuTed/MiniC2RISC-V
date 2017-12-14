@@ -53,7 +53,7 @@ VarDefn	: Type Identifier SEMI {$$ = new node(getnewID(Globl));
 								addconv($2, $$->ID);
 								}
 		| Type Identifier '[' INTEGER ']' SEMI {$$ = new node(getnewID(Globl));
-												$$->append("var %d %s\n", 4*$4, $$->ID);
+												$$->append("var %d %s\n", 8*$4, $$->ID);
 												addconv($2, $$->ID);
 												}
 ;
@@ -113,7 +113,7 @@ Statement : IF '(' Expression ')' Block %prec IFX {$$ = parseif($3, $5);}
 		  | Identifier '[' Expression ']' ASSIGN AssignList SEMI {$$ = $3;
 		  														  char *idx = getnewID(Temp);
 		  														  $$->concat($6);
-		  														  $$->append("var %s\n%s = 4 * %s\n", idx, idx, $3->ID);
+		  														  $$->append("var %s\n%s = 8 * %s\n", idx, idx, $3->ID);
 		  														  $$->append("%s [%s] = %s\n", conv($1), idx, $6->ID);
 		  														  delete[] $3->ID;
 		  														  $3->ID = NULL;
@@ -134,7 +134,7 @@ AssignList : Expression
 		   | Identifier '[' Expression ']' ASSIGN AssignList {$$ = $6;
 		  													  char *idx = getnewID(Temp);
 		  													  $$->concat($3);
-		  													  $$->append("var %s\n%s = 4 * %s\n", idx, idx, $3->ID);
+		  													  $$->append("var %s\n%s = 8 * %s\n", idx, idx, $3->ID);
 		  													  $$->append("%s [%s] = %s\n", conv($1), idx, $6->ID);
 		  													  delete $3;
 		  													  }
@@ -145,7 +145,7 @@ Expression : DyadicArithOpt
 		   | Identifier '[' Expression ']' {$$ = new node(getnewID(Temp));
 										  	char *idx = getnewID(Temp);
 										  	$$->concat($3);
-										  	$$->append("var %s\n%s = 4 * %s\n", idx, idx, $3->ID);
+										  	$$->append("var %s\n%s = 8 * %s\n", idx, idx, $3->ID);
 										  	$$->append("var %s\n%s = %s [%s]\n", $$->ID, $$->ID, conv($1), idx);
 										  	delete[] idx;
 										  	delete $3;

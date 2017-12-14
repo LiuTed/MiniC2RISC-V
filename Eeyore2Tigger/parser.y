@@ -25,7 +25,7 @@ const char* x0 = "x0";
 %token VAR CALL END GOTO PARAM RETURN IF
 %token NL
 
-%token AEV VEA VEI VEV INFUNC OUTFUNC DYOP UNOP DYOPI
+%token AEV VEA VEI VEV INFUNC OUTFUNC DYOP UNOP DYOPI NOP
 
 %type<op> OP1 OP2 LOP
 %type<NPtr> Expr GExpr VarDecl

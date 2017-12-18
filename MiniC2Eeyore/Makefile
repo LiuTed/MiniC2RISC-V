@@ -9,7 +9,7 @@ all: a.out
 a.out: parser.tab.cpp lex.yy.cpp tools.cpp
 	$(CC) lex.yy.cpp parser.tab.cpp tools.cpp $(CFLAGS) $(LINKAGE)
 
-lex.yy.cpp: scan.l y.tab.h
+lex.yy.cpp: scan.l parser.tab.h
 	$(FLEX) scan.l
 	mv lex.yy.c lex.yy.cpp
 

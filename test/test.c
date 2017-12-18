@@ -2,15 +2,14 @@ int getint();
 int putchar(int c);
 int putint(int i);
 int getchar();
-int f(int x);
-int g(int x) 
+long f(int x);
+long g(int x) 
 {
-	int a[40];
+	long a[60];
 	a[0] = 1;
 	a[1] = 1;
-	int i;
-	i = 2; 
-	while(i<x+1)
+	int i = 2; 
+	while(i < x+1)
 	{
 		a[i] = a[i - 1] + a[i - 2];
 		i = i + 1;
@@ -20,22 +19,21 @@ int g(int x)
 int n;
 int main() {
 	n = getint();
-	if (n < 0 || n > 30)
+	if (n < 0 || n > 60)
 		return 1;
-	int c;
-	int result;
+	long c;
 	c = f(n);
-	result = putint(c);
+	putint(c);
 	c = 10;
-	result = putchar(c);
-	int d;
+	putchar(c);
+	long d;
 	d = g(n);
-	result = putint(d);
+	putint(d);
 	d = 10;
-	result = putchar(d);
+	putchar(d);
 	return 0;
 }
-int f(int x) //comment
+long f(int x) //comment
 {
 	if (x < 2)
 		return 1;

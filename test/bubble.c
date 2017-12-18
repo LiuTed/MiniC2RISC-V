@@ -8,8 +8,7 @@ int main()
 	int n;
 	n = getint();
 	int arr[100];
-	int i;
-	i=0;
+	int i=0;
 	while(i < n)
 	{
 		arr[i] = getint();

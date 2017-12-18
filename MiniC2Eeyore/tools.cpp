@@ -1,204 +1,164 @@
 #include "tools.h"
-#include "y.tab.h"
 #include <vector>
-#include <utility>
 #include <cstdio>
 #include <cstring>
-static vector<pair<char*,char*> > vec;
+using namespace std;
 
-static int paracount = 0;
-void addpara(char* id)
+stack<_label> labelstack;
+int long_size;
+
+int _var::width()
 {
-	if(paracount == 0)
-	{
-		inblock();
-	}
-	char *c = new char[16];
-	sprintf(c, "p%d", paracount++);
-	addconv(id, c);
+	if(length != 0) return long_size;
+	else return type_width;
 }
-void endfunc()
+
+_label::_label()
 {
-	outblock();
-	paracount = 0;
+	static int n = 0;
+	name = new char[32];
+	snprintf(name, 32, "l%d", n++);
+}
+using vlt = pair<const char*, _var>;
+static vector<vlt> varlist;
+static vector<_func> flist;
+
+void addvar(const char* name, int type_width, int length)
+{
+	static int varn = 0;
+	_var var;
+	var.name = new char[32];
+	snprintf(var.name, 32, "T%d", varn);
+	varn++;
+	var.type_width = type_width;
+	var.length = length;
+	varlist.push_back(vlt(name, var));
+	if(length > 0)
+		OUT("var %d %s\n", length*type_width, var.name);
+	else
+		OUT("var %s\n", var.name);
+}
+static int paracnt = 0;
+void addpara(const char* name, int type_width, int length)
+{
+	_var var;
+	var.name = new char[32];
+	snprintf(var.name, 32, "p%d", paracnt);
+	paracnt++;
+	var.type_width = type_width;
+	var.length = length;
+	varlist.push_back(vlt(name, var));
+}
+void addfunc(const char* name, int type_width, int nparas)
+{
+	for(auto i = flist.begin(); i != flist.end(); ++i)
+	{
+		if(!strcmp(name, i->name))
+		{
+			if(i->def == 1)
+			{
+				yyerror("redefine function");
+				exit(0);
+			}
+			i->def = 1;
+			flist.push_back(*i);
+			return;
+		}
+	}
+	_func f;
+	f.name = name;
+	f.type_width = type_width;
+	f.nparas = nparas;
+	f.def = 1;//defined
+	flist.push_back(f);
+	flist.push_back(f);
+}
+void addfuncdecl(const char* name, int type_width, int nparas)
+{
+	for(auto i = flist.begin(); i != flist.end(); ++i)
+	{
+		if(!strcmp(name, i->name))
+		{
+			yyerror("redeclearing function");
+			exit(0);
+		}
+	}
+	_func f;
+	f.name = name;
+	f.type_width = type_width;
+	f.nparas = nparas;
+	f.def = 0;//decleared
+	flist.push_back(f);
+	flist.push_back(f);
+	outfunc();
+}
+void outfunc()
+{
+	_func f = flist.back();
+	for(int i = 0; i < f.nparas; i++)
+	{
+		_var v = varlist.back().second;
+		delete[] v.name;
+		varlist.pop_back();
+	}
+	flist.pop_back();
+	paracnt = 0;
 }
 void inblock()
 {
-	vec.push_back(pair<char*,char*>(NULL,NULL));
+	varlist.push_back(vlt(NULL, _var()));
 }
 void outblock()
 {
-	while(!vec.empty())
+	while(!varlist.empty())
 	{
-		auto b = vec.back();
-		if(b.first || b.second)
+		if(varlist.back().first)
+			varlist.pop_back();
+		else
 		{
-			delete[] b.first;
-			vec.pop_back();
+			varlist.pop_back();
+			break;
 		}
-		else break;
 	}
-	if(!vec.empty()) vec.pop_back();
 }
-void addconv(char* from,char* to)
+_var* addtmp(int type_width)
 {
-	vec.push_back(pair<char*,char*>(from,to));
+	static int cnt = 0;
+	_var *var = new _var;
+	var->name = new char[32];
+	snprintf(var->name, 32, "t%d", cnt);
+	cnt++;
+	var->type_width = type_width;
+	var->length = 0;
+	OUT("var %s\n", var->name);
+	return var;
 }
-char *conv(char* from)
+_var* findvar(const char* name)
 {
-	for(auto it = vec.rbegin(); it!=vec.rend(); ++it)
+	for(auto i = varlist.size() - 1; i != 0; i--)
 	{
-		if(!it->first) continue;
-		if(!strcmp(it->first, from)) return it->second;
+		if(!varlist[i].first) continue;
+		if(!strcmp(varlist[i].first, name))
+			return &(varlist[i].second);
 	}
+	if(!varlist[0].first) return NULL;
+	if(!strcmp(varlist[0].first, name))
+		return &(varlist[0].second);
 	return NULL;
 }
-static vector<pair<char*,node*> > funclist;
-void addfunc(char* name,node* ptr)
+void CHECKNARROW(_var *dst, _var *ori)
 {
-	for(auto& i : funclist)
-	{
-		if(!strcmp(i.first, name))
-		{
-			if(!(i.second==NULL&&ptr!=NULL))
-			{
-				yyerror("function redeclared");
-				return;
-			}
-			else
-			{
-				i.second=ptr;
-				return;
-			}
-		}
-	}
-	funclist.push_back(pair<char*,node*>(name,ptr));
+	if(dst->width() < ori->width())
+		WARNING("narrowing conversion");
 }
-
-void node::concat(node* p)
+_func* calling(const char* name, int nparas)
 {
-	if(p)
-		code.splice(code.end(), p->code);
-}
-
-
-node* parseif(node* cond, node* then, node* fail)
-{
-	node *res = new node(NULL);
-	res->concat(cond);
-	char *faillabel = getnewID(Label);
-	res->append("if %s == 0 goto %s\n", cond->ID, faillabel);
-	res->concat(then);
-	if(fail)
+	for(size_t i = 0; i < flist.size(); i++)
 	{
-		char *endlabel = getnewID(Label);
-		res->append("goto %s\n%s:\n", endlabel, faillabel);
-		res->concat(fail);
-		res->append("%s:\n", endlabel);
+		if(!strcmp(flist[i].name, name))
+			return &(flist[i]);
 	}
-	else
-	{
-		res->append("%s:\n", faillabel);
-	}
-	delete cond;
-	delete then;
-	delete fail;
-	return res;
-}
-node* parsewhile(node* cond, node* then)
-{
-	node *res = new node(NULL);
-	char *looplabel = getnewID(Label);
-	char *judgelabel = getnewID(Label);
-	res->append("goto %s\n%s:\n", judgelabel, looplabel);
-	res->concat(then);
-	res->append("%s:\n", judgelabel);
-	res->concat(cond);
-	res->append("if %s != 0 goto %s\n", cond->ID, looplabel);
-	delete cond;
-	delete then;
-	return res;
-}
-node* parsedyop(node* left, int op, node* right)
-{
-	node *res = new node(getnewID(Temp));
-	res->concat(left);
-	res->concat(right);
-	const char *cop;
-	switch(op)
-	{
-		case ADD:
-			cop = " + ";
-			break;
-		case SUB:
-			cop = " - ";
-			break;
-		case MUL:
-			cop = " * ";
-			break;
-		case DIV:
-			cop = " / ";
-			break;
-		case MOD:
-			cop = " % ";
-			break;
-		case LOGIC_OR:
-			cop = " || ";
-			break;
-		case LOGIC_AND:
-			cop = " && ";
-			break;
-		case EQ:
-			cop = " == ";
-			break;
-		case NE:
-			cop = " != ";
-			break;
-		case LT:
-			cop = " < ";
-			break;
-		case GT:
-			cop = " > ";
-			break;
-		default:
-			yyerror("unknown op in parsedyop");
-	}
-	res->append("var %s\n%s = %s%s%s\n", res->ID, res->ID, left->ID, cop, right->ID);
-	delete left;
-	delete right;
-	return res;
-}
-static int count[3] = {0, 0, 0};//temp globl label
-char* getnewID(ID_Type T)
-{
-	switch(T)
-	{
-		case Temp:
-			sprintf(buf, "t%d", count[0]++);
-			break;
-		case Globl:
-			sprintf(buf, "T%d", count[1]++);
-			break;
-		case Label:
-			sprintf(buf, "l%d", count[2]++);
-			break;
-	}
-	return strdup(buf);
-}
-node* varlist = NULL;
-static void outputCode(FILE* fp, node* root)
-{
-	if(!root) return;
-	for(const auto& c:root->code)
-	{
-		fprintf(fp, "%s", c);
-	}
-}
-void genCode(FILE* fp)
-{
-	outputCode(fp, varlist);
-	for(auto& i : funclist)
-	{
-		outputCode(fp, i.second);
-	}
+	yyerror("unknown function");
+	exit(0);
+	return NULL;
 }

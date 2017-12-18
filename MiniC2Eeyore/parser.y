@@ -9,211 +9,287 @@ extern FILE* yyout;
 extern int yylineno;
 int yyerror(const char*);
 int yylex();
-extern node* varlist;
+#ifndef INT_MAX
+#define INT_MAX 0x7fffffff
+#endif
 %}
 %union {
-	struct node *NPtr;
+	struct _var *var;
 	char *container;
-	int IntVal;
+	long int IntVal;
 }
 
 %token <IntVal> INTEGER
 %token <container> IDENTIFIER
 %token SEMI COMMA
-%token TYPE_INT IF ELSE WHILE RETURN
-%token LOGIC_AND LOGIC_OR LOGIC_NOT LE LT GE GT EQ NE ASSIGN ADD SUB MUL DIV MOD
+%token TYPE_INT TYPE_LONG IF ELSE WHILE RETURN DO
+%token LOGIC_AND LOGIC_OR LOGIC_NOT LT GT EQ NE ADD SUB MUL DIV MOD
 
 %nonassoc IFX
 %nonassoc ELSE
-%right ASSIGN
+%left COMMA
+%right '='
 %left LOGIC_OR
 %left LOGIC_AND
 %left NE EQ
-%left LE LT GE GT
+%left LT GT
 %left ADD SUB
 %left MUL DIV MOD
 %right LOGIC_NOT MINUS
 
-%type <NPtr> VarDefn FuncDecl FuncDefn Goal Statement StatementList Block Expression DyadicArithOpt DyadicLogicOpt CmpOpt IDList NEIDList AssignList
-%type <container> Identifier
-%type <IntVal> VarList NEVarList
+%type<var> Expr BOP
+%type<IntVal> Type VarDeclList NEVarDeclList IDList NEIDList
 
-%start Goal
-
-%%
-
-Goal : VarDefn Goal {varlist = $$ = $1; $1->concat($2); delete $2;}
-	 | FuncDefn Goal {varlist = $$ = $2;}
-	 | FuncDecl Goal {varlist = $$ = $2; delete $1;}
-	 | {varlist = $$ = NULL;}
-;
-
-VarDefn	: Type Identifier SEMI {$$ = new node(getnewID(Globl));
-								$$->append("var %s\n", $$->ID);
-								addconv($2, $$->ID);
-								}
-		| Type Identifier '[' INTEGER ']' SEMI {$$ = new node(getnewID(Globl));
-												$$->append("var %d %s\n", 8*$4, $$->ID);
-												addconv($2, $$->ID);
-												}
-;
-
-VarDecl : Type Identifier {addpara($2);}
-		| Type Identifier '[' ']' {addpara($2);}
-		| Type Identifier '[' INTEGER ']' {addpara($2);}
-;
-
-FuncDefn : Type Identifier '(' VarList ')' '{' StatementList '}' {$$ = new node(NULL);
-																  $$->append("f_%s [%d]\n", $2, $4);
-																  $$->concat($7);
-																  $$->append("return 0\nend f_%s\n", $2);
-																  delete $7;
-																  endfunc();
-																  addfunc($2, $$);
-																  }
-;
-
-FuncDecl : Type Identifier '(' VarList ')' SEMI {$$ = new node(NULL);
-												 endfunc();
-												 addfunc($2, NULL);
-												 }
-;
-
-VarList : NEVarList {$$ = $1;}
-		| {inblock(); $$ = 0;}
-;
-
-NEVarList : VarDecl COMMA NEVarList {$$ = $3 + 1;}
-		  | VarDecl {$$ = 1;}
-;
-
-StatementList : Statement StatementList {$$ = $1; $$->concat($2); delete $2;}
-			  | '{' InBlock StatementList '}' OutBlock StatementList {$$ = $3; $$->concat($6); delete $6;}
-			  | {$$ = NULL;}
-;
-
-Block : '{' InBlock StatementList '}' OutBlock {$$ = $3;}
-	  | Statement {$$ = $1;}
-;
-
-InBlock : {inblock();}
-;
-
-OutBlock : {outblock();}
-;
-
-Statement : IF '(' Expression ')' Block %prec IFX {$$ = parseif($3, $5);}
-		  | IF '(' Expression ')' Block ELSE Block %prec ELSE {$$ = parseif($3, $5, $7);}
-		  | WHILE '(' Expression ')' Block {$$ = parsewhile($3, $5);}
-		  | Identifier ASSIGN AssignList SEMI {$$ = $3;
-											   $3->append("%s = %s\n", conv($1), $3->ID);
-											   delete[] $3->ID;
-		  									   $3->ID = NULL;
-		  									   }
-		  | Identifier '[' Expression ']' ASSIGN AssignList SEMI {$$ = $3;
-		  														  char *idx = getnewID(Temp);
-		  														  $$->concat($6);
-		  														  $$->append("var %s\n%s = 8 * %s\n", idx, idx, $3->ID);
-		  														  $$->append("%s [%s] = %s\n", conv($1), idx, $6->ID);
-		  														  delete[] $3->ID;
-		  														  $3->ID = NULL;
-		  														  delete $6;
-		  														  }
-		  | VarDefn {$$ = $1;}
-		  | RETURN Expression SEMI {$$ = $2;
-		  							$$->append("return %s\n", $2->ID);
-		  							delete[] $2->ID;
-		  							$2->ID = NULL;
-		  							}
-		  | SEMI {$$ = new node(NULL);}
-;
-
-AssignList : Expression
-		   | Identifier ASSIGN AssignList {$$ = $3;
-		   								   $3->append("%s = %s\n", conv($1), $3->ID);}
-		   | Identifier '[' Expression ']' ASSIGN AssignList {$$ = $6;
-		  													  char *idx = getnewID(Temp);
-		  													  $$->concat($3);
-		  													  $$->append("var %s\n%s = 8 * %s\n", idx, idx, $3->ID);
-		  													  $$->append("%s [%s] = %s\n", conv($1), idx, $6->ID);
-		  													  delete $3;
-		  													  }
-
-Expression : DyadicArithOpt
-		   | DyadicLogicOpt
-		   | CmpOpt
-		   | Identifier '[' Expression ']' {$$ = new node(getnewID(Temp));
-										  	char *idx = getnewID(Temp);
-										  	$$->concat($3);
-										  	$$->append("var %s\n%s = 8 * %s\n", idx, idx, $3->ID);
-										  	$$->append("var %s\n%s = %s [%s]\n", $$->ID, $$->ID, conv($1), idx);
-										  	delete[] idx;
-										  	delete $3;
-										  	}
-		   | INTEGER {$$ = new node(getnewID(Temp));
-		   			  $$->append("var %s\n%s = %d\n", $$->ID, $$->ID, $1);
-		   			  }
-		   | Identifier {$$ = new node(strdup(conv($1)));
-		   				 }
-		   | LOGIC_NOT Expression {$$ = new node(getnewID(Temp));
-		   						   $$->concat($2);
-		   						   $$->append("var %s\n%s = ! %s\n", $$->ID, $$->ID, $2->ID);
-		   						   delete $2;
-		   						   }
-		   | SUB Expression %prec MINUS {$$ = new node(getnewID(Temp));
-		   						   		 $$->concat($2);
-		   						   		 $$->append("var %s\n%s = -%s\n", $$->ID, $$->ID, $2->ID);
-		   						   		 delete $2;
-		   						   		 }
-		   | Identifier '(' IDList ')' {$$ = new node(getnewID(Temp));
-		   								$$->append("var %s\n", $$->ID);
-		   								$$->concat($3);
-		   								$$->append("%s = call f_%s\n", $$->ID, $1);
-		   								delete $3;
-		   								}
-		   | '(' Expression ')' {$$ = $2;}
-;
-
-IDList : NEIDList
-	   | {$$ = new node(NULL);}
-;
-
-NEIDList : Identifier COMMA NEIDList {$$ = $3; $$->prepend("param %s\n", conv($1));}
-		 | Identifier  {$$ = new node(NULL); $$->append("param %s\n", conv($1));}
-;
-
-DyadicArithOpt : Expression ADD Expression {$$ = parsedyop($1, ADD, $3);}
-		  	   | Expression SUB Expression {$$ = parsedyop($1, SUB, $3);}
-		  	   | Expression MUL Expression {$$ = parsedyop($1, MUL, $3);}
-			   | Expression DIV Expression {$$ = parsedyop($1, DIV, $3);}
-			   | Expression MOD Expression {$$ = parsedyop($1, MOD, $3);}
-;
-
-DyadicLogicOpt : Expression LOGIC_AND Expression {$$ = parsedyop($1, LOGIC_AND, $3);}
-			   | Expression LOGIC_OR Expression {$$ = parsedyop($1, LOGIC_OR, $3);}
-;
-
-CmpOpt : Expression LT Expression {$$ = parsedyop($1, LT, $3);}
-	   | Expression EQ Expression {$$ = parsedyop($1, EQ, $3);}
-	   | Expression GT Expression {$$ = parsedyop($1, GT, $3);}
-	   | Expression NE Expression {$$ = parsedyop($1, NE, $3);}
-;
-
-Identifier : IDENTIFIER {$$ = $1;}
-;
-
-Type : TYPE_INT
-;
+%start S
 
 %%
-int main()
+
+S:
+  S VarDefn
+| S FuncDefn
+| S FuncDecl
+|
+;
+
+VarDefn:
+  Type IDENTIFIER SEMI {addvar($2, $1);}
+| Type IDENTIFIER '[' INTEGER ']' SEMI {addvar($2, $1, $4);}
+| Type IDENTIFIER '=' INTEGER SEMI {
+	addvar($2, $1);
+	_var *v = findvar($2);
+	OUT("%s = %ld\n", v->name, $4);
+}
+;
+
+VarDecl:
+  Type IDENTIFIER {addpara($2, $1);}
+| Type IDENTIFIER '[' ']' {addpara($2, $1, -1);}
+| Type IDENTIFIER '[' INTEGER ']' {addpara($2, $1, $4);}
+;
+
+FuncDefn: Type IDENTIFIER '(' VarDeclList ')' '{' {
+	addfunc($2, $1, $4);
+	inblock();
+	OUT("f_%s [%ld]\n", $2, $4);
+} StatementList '}' {
+	outblock();
+	outfunc();
+	OUT("end f_%s\n", $2);
+}
+;
+
+FuncDecl: Type IDENTIFIER '(' VarDeclList ')' SEMI {
+	addfuncdecl($2, $1, $4);
+}
+;
+
+VarDeclList:
+  NEVarDeclList
+| {$$ = 0;}
+;
+
+NEVarDeclList:
+  VarDecl {$$ = 1;}
+| NEVarDeclList COMMA VarDecl {$$ = $1 + 1;}
+;
+
+Type:
+  TYPE_INT {$$ = 4;}
+| TYPE_LONG {$$ = long_size;}
+;
+
+Block:
+  Statement
+| '{' {
+	inblock();
+} StatementList '}' {outblock();}
+;
+
+StatementList:
+  StatementList Block
+|
+;
+
+IFHead:
+  IF '(' Expr ')' {
+  	_label fail;
+  	labelstack.push(fail);
+  	OUT("if %s == 0 goto %s\n", $3->name, fail.name);
+} Block
+;
+
+Statement:
+  IFHead %prec IFX {
+  	_label fail = labelstack.top();
+  	labelstack.pop();
+	OUT("%s:\n", fail.name);
+}
+| IFHead ELSE {
+  	_label fail = labelstack.top();
+  	labelstack.pop();
+	_label lend;
+  	labelstack.push(lend);
+	OUT("goto %s\n", lend.name);
+	OUT("%s:\n", fail.name);
+} Block {
+  	_label lend = labelstack.top();
+  	labelstack.pop();
+	OUT("%s:\n", lend.name);
+}
+| WHILE {
+	_label judge;
+	_label fail;
+	labelstack.push(judge);
+	labelstack.push(fail);
+	OUT("%s:\n", judge.name);
+} '(' Expr ')' {
+	_label fail = labelstack.top();
+	OUT("if %s == 0 goto %s\n", $4->name, fail.name);
+} Block {
+	_label fail = labelstack.top();
+	labelstack.pop();
+	_label judge = labelstack.top();
+	labelstack.pop();
+	OUT("goto %s\n", judge.name);
+	OUT("%s:\n", fail.name);
+}
+| DO {
+	_label start;
+	labelstack.push(start);
+	OUT("%s:\n", start.name);
+} Block WHILE '(' Expr ')' SEMI {
+	_label start = labelstack.top();
+	labelstack.pop();
+	OUT("if %s != 0 goto %s\n", $6->name, start.name);
+}
+| Expr SEMI
+| VarDefn
+| RETURN Expr SEMI {
+	OUT("return %s\n", $2->name);
+}
+| SEMI
+;
+
+Expr:
+  BOP
+| SUB Expr %prec MINUS {
+	$$ = addtmp($2->width());
+	OUT("%s = -%s\n", $$->name, $2->name);
+}
+| LOGIC_NOT Expr {
+	$$ = addtmp(4);
+	OUT("%s = !%s\n", $$->name, $2->name);
+}
+| IDENTIFIER '=' Expr {
+	$$ = findvar($1);
+	CHECKNARROW($$, $3);
+	OUT("%s = %s\n", $$->name, $3->name);
+}
+| IDENTIFIER '[' Expr ']' '=' Expr {
+	_var *arr = findvar($1);
+	$$ = addtmp(arr->type_width);
+	CHECKNARROW($$, $6);
+	_var *idx = addtmp(long_size);
+	OUT("%s = %s * %d\n", idx->name, $3->name, arr->type_width);
+	OUT("%s [%s, %d] = %s\n", arr->name, idx->name, min($6->width(), arr->type_width), $6->name);
+	OUT("%s = %s\n", $$->name, $6->name);
+}
+| INTEGER {
+	$$ = addtmp($1>INT_MAX?long_size:4);
+	OUT("%s = %ld\n", $$->name, $1);
+}
+| IDENTIFIER {
+	$$ = findvar($1);
+}
+| IDENTIFIER '[' Expr ']' {
+	_var *arr = findvar($1);
+	$$ = addtmp(arr->type_width);
+	_var * idx = addtmp($3->width());
+	OUT("%s = %s * %d\n", idx->name, $3->name, arr->type_width);
+	OUT("%s = %s [%s, %d]\n", $$->name, arr->name, idx->name, arr->type_width);
+}
+| IDENTIFIER '(' IDList ')' {
+	_func *f = calling($1, $3);
+	$$ = addtmp(f->type_width);
+	OUT("%s = call f_%s\n", $$->name, $1);
+}
+| '(' Expr ')' {$$ = $2;}
+;
+
+IDList:
+  NEIDList
+| {$$ = 0;}
+;
+
+NEIDList:
+  IDENTIFIER {OUT("param %s\n", findvar($1)->name); $$ = 1;}
+| NEIDList COMMA IDENTIFIER {OUT("param %s\n", findvar($3)->name); $$ = $1+1;}
+;
+
+BOP:
+  Expr ADD Expr {
+  	$$ = addtmp(max($1->width(), $3->width()));
+  	OUT("%s = %s + %s\n", $$->name, $1->name, $3->name);
+}
+| Expr SUB Expr {
+  	$$ = addtmp(max($1->width(), $3->width()));
+  	OUT("%s = %s - %s\n", $$->name, $1->name, $3->name);
+}
+| Expr MUL Expr {
+  	$$ = addtmp(max($1->width(), $3->width()));
+  	OUT("%s = %s * %s\n", $$->name, $1->name, $3->name);
+}
+| Expr DIV Expr {
+  	$$ = addtmp(max($1->width(), $3->width()));
+  	OUT("%s = %s / %s\n", $$->name, $1->name, $3->name);
+}
+| Expr MOD Expr {
+  	$$ = addtmp(max($1->width(), $3->width()));
+  	OUT("%s = %s %% %s\n", $$->name, $1->name, $3->name);
+}
+| Expr LT Expr {
+  	$$ = addtmp(4);
+  	OUT("%s = %s < %s\n", $$->name, $1->name, $3->name);
+}
+| Expr GT Expr {
+  	$$ = addtmp(4);
+  	OUT("%s = %s > %s\n", $$->name, $1->name, $3->name);
+}
+| Expr EQ Expr {
+  	$$ = addtmp(4);
+  	OUT("%s = %s == %s\n", $$->name, $1->name, $3->name);
+}
+| Expr NE Expr {
+  	$$ = addtmp(4);
+  	OUT("%s = %s != %s\n", $$->name, $1->name, $3->name);
+}
+| Expr LOGIC_AND Expr {
+  	$$ = addtmp(4);
+  	OUT("%s = %s && %s\n", $$->name, $1->name, $3->name);
+}
+| Expr LOGIC_OR Expr {
+  	$$ = addtmp(4);
+  	OUT("%s = %s || %s\n", $$->name, $1->name, $3->name);
+}
+| Expr COMMA Expr {
+	$$ = $3;
+}
+
+%%
+int main(int argc, char* argv[])
 {
+	long_size = 8;
+	for(int i = 1; i < argc; i++)
+	{
+		if(!strcmp(argv[i], "-m32"))
+			long_size = 4;
+	}
 	yyparse();
-	genCode(yyout);
 	return 0;
 }
+
 int yyerror(const char *msg)
 {
-	fprintf(stderr ,"error:line %d: %s\n", yylineno, msg);
+	fprintf(stderr ,"error: line %d: %s\n", yylineno, msg);
 	return 1;
 }

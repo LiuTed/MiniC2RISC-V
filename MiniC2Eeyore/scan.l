@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
-#include "y.tab.h"
+#include "parser.tab.h"
 using namespace std;
 extern YYSTYPE yylval;
 extern int yyerror(const char*);
@@ -26,10 +26,12 @@ brace [()[\]{}]
 "," {return COMMA;}
 
 int {return TYPE_INT;}
+long {return TYPE_LONG;}
 
 if {return IF;}
 else {return ELSE;}
 while {return WHILE;}
+do {return DO;}
 return {return RETURN;}
 {brace} {return *yytext;}
 
@@ -45,7 +47,7 @@ return {return RETURN;}
 ">"  {return GT;}
 "==" {return EQ;}
 "!=" {return NE;}
-"="  {return ASSIGN;}
+"="  {return '=';}
 "!"  {return LOGIC_NOT;}
 "+"  {return ADD;}
 "-"  {return SUB;}

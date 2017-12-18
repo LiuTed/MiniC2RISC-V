@@ -38,19 +38,41 @@ int main(int argc, char** argv)
 	char a;
 	int to = 2, from = 0;
 	string command;
-	while((a=getopt(argc, argv, "o:etsh"))!=-1)
+	string paras;
+	int argcnt = 1;
+	for(int i = 1; i < argc; i+= argcnt)
 	{
-		switch(a)
+		argcnt = 1;
+		if(!strcmp(argv[i], "-o"))
 		{
-			case 'o':
-			assert(optarg);
-			output_filename = optarg;
-			break;
-			case 'e': to = 0; break;
-			case 't': to = 1; break;
-			case 's': to = 2; break;
-			case 'h':
-			default: usage(argv[0]); break;
+			if(argc <= i+1) usage(argv[0]);
+			output_filename = argv[i+1];
+			argcnt = 2;
+		}
+		else if(!strcmp(argv[i], "-e"))
+		{
+			to = 0;
+		}
+		else if(!strcmp(argv[i], "-t"))
+		{
+			to = 1;
+		}
+		else if(!strcmp(argv[i], "-s"))
+		{
+			to = 2;
+		}
+		else if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
+		{
+			usage(argv[0]);
+		}
+		else if(argv[i][0] == '-')
+		{
+			paras += argv[i];
+			paras += ' ';
+		}
+		else
+		{
+			input_filename = argv[i];
 		}
 	}
 	if(!output_filename)
@@ -62,7 +84,6 @@ int main(int argc, char** argv)
 			case 2: output_filename="a.s";break;	
 		}
 	}
-	input_filename = argv[optind];
 	if(!input_filename)
 	{
 		usage(argv[0]);
@@ -82,15 +103,15 @@ int main(int argc, char** argv)
 		switch(i)
 		{
 			case 0:
-				snprintf(buf, 65534, "| %s/MiniC2Eeyore/a.out ", path);
+				snprintf(buf, 65534, "| %s/MiniC2Eeyore/a.out %s", path, paras.c_str());
 				command += buf;
 				break;
 			case 1:
-				snprintf(buf, 65534, "| %s/Eeyore2Tigger/a.out ", path);
+				snprintf(buf, 65534, "| %s/Eeyore2Tigger/a.out %s", path, paras.c_str());
 				command += buf;
 				break;
 			case 2:
-				snprintf(buf, 65534, "| %s/Tigger2RISCV/a.out ", path);
+				snprintf(buf, 65534, "| %s/Tigger2RISCV/a.out %s", path, paras.c_str());
 				command += buf;
 				break;
 		}

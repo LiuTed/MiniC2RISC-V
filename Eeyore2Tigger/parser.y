@@ -82,8 +82,8 @@ Expr:
 | Lval '=' Lval {$$ = new node; $$->t = VEV; $$->p.assign({$1,$3});}
 | Lval '=' Rval OP2 Rval {$$ = new node; $$->t = DYOP; $$->p.assign({$1,$3,(char*)$4,$5});}
 | Lval '=' OP1 Rval {$$ = new node; $$->t = UNOP; $$->p.assign({$1,(char*)$3,$4});}
-| Lval '[' Rval ']' '=' Rval {$$ = new node; $$->t = AEV; $$->p.assign({$1,$6,$3});}
-| Lval '=' Lval '[' Rval ']' {$$ = new node; $$->t = VEA; $$->p.assign({$1,$3,$5});}
+| Lval '[' Rval ',' INTEGER ']' '=' Rval {$$ = new node; $$->t = AEV; $$->p.assign({$1,$3, $5, $8});}
+| Lval '=' Lval '[' Rval ',' INTEGER ']' {$$ = new node; $$->t = VEA; $$->p.assign({$1,$3,$5,$7});}
 | IF Rval LOP Rval GOTO LABEL {$$ = new node; $$->t = IF; $$->p.assign({$2,(char*)$3,$4,$6});}
 | GOTO LABEL {$$ = new node; $$->t = GOTO; $$->p.assign({$2});}
 | LABEL ':' {$$ = new node; $$->t = LABEL; $$->p.assign({$1});}
@@ -104,8 +104,14 @@ LOP: AND {$$ = AND;} | OR {$$ = OR;} | LT {$$ = LT;}
 ;
 
 %%
-int main()
+int main(int argc, char *argv[])
 {
+	long_size = 8;
+	for(int i = 1; i < argc; i++)
+	{
+		if(!strcmp(argv[i], "-m32"))
+			long_size = 4;
+	}
 	yyparse();
 	analyze();
 	return 0;

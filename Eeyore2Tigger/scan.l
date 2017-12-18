@@ -15,7 +15,7 @@ ws {delim}+
 digit [0-9]
 integer ("+"|"-")?{digit}+
 
-sc [[\]=:]
+sc [,[\]=:]
 
 %%
 

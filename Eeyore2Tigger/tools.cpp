@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cassert>
 using namespace std;
+int long_size;
 
 namespace std
 {
@@ -494,7 +495,7 @@ static void analyze2()//liveness
 						res = func.vars.find(var);
 						if(res == func.vars.end())
 							ERR(n.lineno, "unknown variable %s", var.name);
-						if(n.t != VEA) newlive.set(res->index);
+						newlive.set(res->index);
 						var.name = n.p.back();
 						res = func.vars.find(var);
 						if(res == func.vars.end())
@@ -503,6 +504,24 @@ static void analyze2()//liveness
 						break;
 					}
 					case VEA:
+					{
+						var.name = n.p[0];
+						auto res = func.vars.find(var);
+						if(res == func.vars.end())
+							ERR(n.lineno, "unknown variable %s", var.name);
+						newlive.set(res->index);
+						var.name = n.p[1];
+						res = func.vars.find(var);
+						if(res == func.vars.end())
+							ERR(n.lineno, "unknown variable %s", var.name);
+						newlive.set(res->index);
+						var.name = n.p[2];
+						res = func.vars.find(var);
+						if(res == func.vars.end())
+							ERR(n.lineno, "unknown variable %s", var.name);
+						newlive.set(res->index);
+						break;
+					}
 					case DYOP:
 					{
 						var.name = n.p[0];
@@ -774,15 +793,6 @@ static void loadvar(const _variable& v, int reg)
 	else
 		printf("%s = %s\n", regnames[reg], regnames[v.color]);
 }
-static void storevar(int reg, const _variable& v)
-{
-	if(v.color < 0)
-		printf("loadaddr v%d %s\n%s [ 0 ] = %s\n", v.startat, sw1, sw1, regnames[reg]);
-	else if(v.color >= regnum)
-		printf("store %s %d\n", regnames[reg], v.color-regnum);
-	else
-		printf("%s = %s\n", regnames[v.color], regnames[reg]);
-}
 static void loadsw(const _variable& v, const char* sw)
 {
 	if(v.color < 0)
@@ -802,10 +812,10 @@ static void loadsw(const _variable& v, const char* sw)
 	else
 		printf("%s = %s\n", sw, regnames[v.color]);
 }
-static void storesw(const char* sw, const _variable& v)
+static void storesw(const char* sw, const _variable& v, int s)
 {
 	if(v.color < 0)
-		printf("loadaddr v%d %s\n%s [ 0 ] = %s\n", v.startat, (sw==sw1?sw2:sw1), (sw==sw1?sw2:sw1), sw);
+		printf("loadaddr v%d %s\n%s [0, %d] = %s\n", v.startat, (sw==sw1?sw2:sw1), (sw==sw1?sw2:sw1), s, sw);
 	else if(v.color >= regnum)
 		printf("store %s %d\n", sw, v.color-regnum);
 	else
@@ -928,7 +938,7 @@ static void analyze5()//gen code
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("loadaddr v%d %s\n", res->startat, sw2);
-						printf("%s [0] = %s\n", sw2, result);
+						printf("%s [0, %d] = %s\n", sw2, long_size, result);
 					}
 					break;
 				}
@@ -972,7 +982,7 @@ static void analyze5()//gen code
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("loadaddr v%d %s\n", res->startat, sw2);
-						printf("%s [0] = %s\n", sw2, result);
+						printf("%s [0, %d] = %s\n", sw2, long_size, result);
 					}
 					break;
 				}
@@ -1007,7 +1017,7 @@ static void analyze5()//gen code
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("loadaddr v%d %s\n", res->startat, sw2);
-						printf("%s [0] = %s\n", sw2, result);
+						printf("%s [0, %d] = %s\n", sw2, long_size, result);
 					}
 					break;
 				}
@@ -1017,7 +1027,7 @@ static void analyze5()//gen code
 					var.name = n.p[0];
 					res = f.vars.find(var);
 					loadsw(*res, sw1);
-					var.name = n.p[2];
+					var.name = n.p[1];
 					res = f.vars.find(var);
 					if(!inreg(res->color))
 					{
@@ -1026,14 +1036,14 @@ static void analyze5()//gen code
 					}
 					else reg2 = regnames[res->color];
 					printf("%s = %s + %s\n", sw1, sw1, reg2);
-					var.name = n.p[1];
+					var.name = n.p[3];
 					res = f.vars.find(var);
 					if(inreg(res->color))
-						printf("%s [0] = %s\n", sw1, regnames[res->color]);
+						printf("%s [0, %s] = %s\n", sw1, n.p[2], regnames[res->color]);
 					else
 					{
 						loadsw(*res, sw2);
-						printf("%s [0] = %s\n", sw1, sw2);
+						printf("%s [0, %s] = %s\n", sw1, n.p[2], sw2);
 					}
 					break;
 				}
@@ -1055,12 +1065,12 @@ static void analyze5()//gen code
 					var.name = n.p[0];
 					res = f.vars.find(var);
 					if(inreg(res->color))
-						printf("%s = %s [0]\n", regnames[res->color], sw1);
+						printf("%s = %s [0, %s]\n", regnames[res->color], sw1, n.p[3]);
 					else if(res->color >= regnum)
 					{
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
-						printf("%s = %s [0]\n", sw1, sw1);
+						printf("%s = %s [0, %s]\n", sw1, sw1, n.p[3]);
 						printf("store %s %d\n", sw1, res->color-regnum);
 					}
 					else
@@ -1068,8 +1078,8 @@ static void analyze5()//gen code
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("loadaddr v%d %s\n", res->startat, sw2);
-						printf("%s = %s [0]\n", sw1, sw1);
-						printf("%s [0] = %s\n", sw2, sw1);
+						printf("%s = %s [0, %s]\n", sw1, sw1, n.p[3]);
+						printf("%s [0, %s] = %s\n", sw2, n.p[3], sw1);
 					}
 					break;
 				}
@@ -1101,7 +1111,7 @@ static void analyze5()//gen code
 						if(res->length > 0)
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("loadaddr v%d %s\n", res->startat, sw2);
-						printf("%s [0] = %s\n", sw2, reg1);
+						printf("%s [0, %d] = %s\n", sw2, long_size, reg1);
 					}
 					break;
 				}
@@ -1126,7 +1136,7 @@ static void analyze5()//gen code
 							ERR(n.lineno, "trying to assign a int/array to array");
 						printf("%s = %s\n", sw1, n.p[1]);
 						printf("loadaddr v%d %s\n", res->startat, sw2);
-						printf("%s [0] = %s\n", sw2, sw1);
+						printf("%s [0, %d] = %s\n", sw2, long_size, sw1);
 					}
 					break;
 				}
@@ -1146,14 +1156,18 @@ static void analyze5()//gen code
 					if(cfc[i-1]->t != PARAM)
 						printf("loadaddr v0 %s\n", sw1);
 					if(inreg(res->color))
-						printf("%s [%ld] = %s\n", sw1, 8*para.size(), regnames[res->color]);
+						printf("%s [%ld, %d] = %s\n",
+								sw1, long_size*para.size(),
+								long_size, regnames[res->color]);
 					else if(res->color >= regnum)
 					{
 						if(res->length > 0)
 							printf("loadaddr %d %s\n", res->color-regnum, sw2);
 						else
 							printf("load %d %s\n", res->color-regnum, sw2);
-						printf("%s [%ld] = %s\n", sw1, 8*para.size(), sw2);
+						printf("%s [%ld, %d] = %s\n",
+							sw1, long_size*para.size(),
+							long_size, sw2);
 					}
 					else
 					{
@@ -1161,7 +1175,9 @@ static void analyze5()//gen code
 							printf("loadaddr v%d %s\n", res->startat, sw2);
 						else
 							printf("load v%d %s\n", res->startat, sw2);
-						printf("%s [%ld] = %s\n", sw1, 8*para.size(), sw2);
+						printf("%s [%ld, %d] = %s\n",
+							sw1, long_size*para.size(),
+							long_size, sw2);
 					}
 					para.push_back(n.p[0]);
 					break;
@@ -1204,7 +1220,7 @@ static void analyze5()//gen code
 					if(para.size()>0 && cfc[i-1]->t != PARAM) printf("loadaddr v0 %s\n", sw1);
 					for(int j = 0; j < para.size(); j++)
 					{
-						printf("%s = %s [%d]\n", regnames[a0+j], sw1, 8*j);
+						printf("%s = %s [%d, %d]\n", regnames[a0+j], sw1, long_size*j, long_size);
 					}
 					printf("call %s\n", n.p[1]);
 					var.name = n.p[0];
@@ -1230,7 +1246,7 @@ static void analyze5()//gen code
 								}
 							}
 					}
-					storesw(sw1, *res);
+					storesw(sw1, *res, long_size);
 					para.clear();
 					para.resize(0);
 					break;

@@ -1,47 +1,46 @@
-#ifndef TOOLS_H
-#define TOOLS_H
-#include <list>
-#include <cstdlib>
 #include <cstdio>
-#include <cstring>
-using namespace std;
+#include <algorithm>
+#include <stack>
+using std::max;
 
-static char buf[32767];
-void addpara(char*);
-void endfunc();
+extern int long_size;
+
+struct _var
+{
+	char* name;
+	int type_width;
+	int length;
+	int width();
+};
+struct _label
+{
+	char* name;
+	_label();
+};
+struct _func
+{
+	const char* name;
+	int type_width;
+	int nparas;
+	int def;
+};
+
+void addvar(const char* name, int type_width, int length = 0);
+void addpara(const char* name, int type_width, int length = 0);
+void addfunc(const char* name, int type_width, int nparas);
+void addfuncdecl(const char* name, int type_width, int nparas);
+void outfunc();
 void inblock();
 void outblock();
-void addconv(char*,char*);
-char *conv(char*);
-struct node
-{
-	char *ID;
-	list<char*> code;
-	node(char *_ID){ID = _ID;}
-	~node(){delete[] ID;for(auto c : code) delete[] c;}
-	template<typename... Args>
-	void append(Args... args)
-	{
-		snprintf(buf, sizeof(buf), args...);
-		code.push_back(strdup(buf));
-	}
-	template<typename... Args>
-	void prepend(Args... args)
-	{
-		snprintf(buf, sizeof(buf), args...);
-		code.push_front(strdup(buf));
-	}
-	void concat(node *);
-};
-void addfunc(char*,node*);
-extern node *varlist;
-node* parseif(node* cond, node* then, node* fail = NULL);
-node* parsewhile(node* cond, node* then);
-node* parsedyop(node* left, int op, node* right);
-void genCode(FILE* fp);
+_var* addtmp(int type_width);
+_var* findvar(const char* name);
+void CHECKNARROW(_var *dst, _var *ori);
+_func* calling(const char* name, int nparas);
+
+extern std::stack<_label> labelstack;
+
+extern int yylineno;
+extern FILE* yyout;
+#define OUT(format, ...) fprintf(yyout, format, ##__VA_ARGS__)
+#define WARNING(format, ...) fprintf(stderr, "warning: %d: " format, yylineno, ##__VA_ARGS__)
 extern int yyerror(const char*);
-
-
-typedef enum {Temp, Globl, Label} ID_Type;
-char* getnewID(ID_Type);
-#endif

@@ -8,6 +8,7 @@ using namespace std;
 
 
 extern int yylineno;
+extern int long_size;
 struct node
 {
 	int lineno;

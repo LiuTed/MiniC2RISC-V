@@ -496,7 +496,7 @@ static void analyze2()//liveness
 						if(res == func.vars.end())
 							ERR(n.lineno, "unknown variable %s", var.name);
 						newlive.set(res->index);
-						var.name = n.p.back();
+						var.name = n.p[3];
 						res = func.vars.find(var);
 						if(res == func.vars.end())
 							ERR(n.lineno, "unknown variable %s", var.name);
@@ -509,7 +509,7 @@ static void analyze2()//liveness
 						auto res = func.vars.find(var);
 						if(res == func.vars.end())
 							ERR(n.lineno, "unknown variable %s", var.name);
-						newlive.set(res->index);
+						newlive.clear(res->index);
 						var.name = n.p[1];
 						res = func.vars.find(var);
 						if(res == func.vars.end())
@@ -1092,6 +1092,7 @@ static void analyze5()//gen code
 					auto res2 = f.vars.find(var);
 					if(res->color == res2->color && res->color >= 0) break;
 					if(res->color < 0 && !strcmp(res->name, res2->name)) break;
+					if(cfc[i+1]->live.test(res->index) != 1) break;
 					if(!inreg(res2->color))
 					{
 						loadsw(*res2, sw1);
@@ -1227,7 +1228,8 @@ static void analyze5()//gen code
 					res = f.vars.find(var);
 					if(res->length > 0)
 						ERR(n.lineno, "trying to assign a int/array to array");
-					printf("%s = %s\n", sw1, regnames[a0]);
+					if(cfc[i+1]->live.test(res->index) == 1)
+						printf("%s = %s\n", sw1, regnames[a0]);
 					//TODO: restore volatile registers
 					int __=0;
 					for(const auto& v : f.vars)
@@ -1246,7 +1248,8 @@ static void analyze5()//gen code
 								}
 							}
 					}
-					storesw(sw1, *res, long_size);
+					if(cfc[i+1]->live.test(res->index) == 1)
+						storesw(sw1, *res, long_size);
 					para.clear();
 					para.resize(0);
 					break;

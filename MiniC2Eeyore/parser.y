@@ -74,6 +74,7 @@ FuncDefn: Type IDENTIFIER '(' VarDeclList ')' '{' {
 } StatementList '}' {
 	outblock();
 	outfunc();
+	OUT("return 0\n");
 	OUT("end f_%s\n", $2);
 }
 ;

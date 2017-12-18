@@ -14,7 +14,7 @@ int main()
 		arr[i] = getint();
 		i=i+1;
 	}
-	i=bubble(arr, n);
+	bubble(arr, n);
 	i=0;
 	int t;
 	while(i<n)

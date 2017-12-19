@@ -43,12 +43,13 @@ GVarDecl:
 	printf("\t.section\t.sdata\n");
 	printf("\t.align\t2\n");
 	printf("\t.type\t%s, @object\n", $1);
-	printf("\t.size\t%s, 8\n", $1);
+	printf("\t.size\t%s, %d\n", $1, long_size);
 	printf("%s:\n", $1);
 	if(long_size == 8)
 		printf("\t.dword\t%d\n\n", $3);
 	else if(long_size == 4)
 		printf("\t.word\t%d\n\n", $3);
+	else yyerror("unknown long width");
 }
 | VAR '=' MALLOC Integer {printf("\n\t.comm\t%s, %d, %d\n\n", $1, $4, long_size);}
 ;
@@ -71,6 +72,7 @@ FUNC '[' Integer ']' '[' Integer ']' '\n' {
 		printf("\tsd\tra, %d(sp)\n", stk-8);
 	else if(long_size == 4)
 		printf("\tsw\tra, %d(sp)\n", stk-4);
+	else yyerror("unknown long width");
 }
 Body END FUNC {
 	stk = 0;

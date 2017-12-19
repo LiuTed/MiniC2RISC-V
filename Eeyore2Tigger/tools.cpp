@@ -847,7 +847,7 @@ static int t2c(const char* t)
 
 static void analyze5()//gen code
 {
-	printf("v0 = malloc 64\n");//used for save parameters
+	printf("v0 = malloc %d\n", long_size*(regnum-1-a0));//used for save parameters
 	for(auto& v : globalvarlist)
 	{
 		if(v.length > 0)

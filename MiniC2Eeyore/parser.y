@@ -22,12 +22,13 @@ int yylex();
 %token <IntVal> INTEGER
 %token <container> IDENTIFIER
 %token SEMI COMMA
-%token TYPE_INT TYPE_LONG IF ELSE WHILE RETURN DO
+%token TYPE_INT TYPE_LONG TYPE_CHAR IF ELSE WHILE RETURN DO
 %token LOGIC_AND LOGIC_OR LOGIC_NOT LT GT EQ NE ADD SUB MUL DIV MOD
 
 %nonassoc IFX
 %nonassoc ELSE
 %left COMMA
+%left EL
 %right '='
 %left LOGIC_OR
 %left LOGIC_AND
@@ -38,7 +39,7 @@ int yylex();
 %right LOGIC_NOT MINUS
 
 %type<var> Expr BOP
-%type<IntVal> Type VarDeclList NEVarDeclList IDList NEIDList
+%type<IntVal> Type VarDeclList NEVarDeclList ExprList NEExprList
 
 %start S
 
@@ -97,6 +98,7 @@ NEVarDeclList:
 Type:
   TYPE_INT {$$ = 4;}
 | TYPE_LONG {$$ = long_size;}
+| TYPE_CHAR {$$ = 1;}
 ;
 
 Block:
@@ -209,7 +211,7 @@ Expr:
 	OUT("%s = %s * %d\n", idx->name, $3->name, arr->type_width);
 	OUT("%s = %s [%s, %d]\n", $$->name, arr->name, idx->name, arr->type_width);
 }
-| IDENTIFIER '(' IDList ')' {
+| IDENTIFIER '(' ExprList ')' {
 	_func *f = calling($1, $3);
 	$$ = addtmp(f->type_width);
 	OUT("%s = call f_%s\n", $$->name, $1);
@@ -217,14 +219,14 @@ Expr:
 | '(' Expr ')' {$$ = $2;}
 ;
 
-IDList:
-  NEIDList
+ExprList:
+  NEExprList
 | {$$ = 0;}
 ;
 
-NEIDList:
-  IDENTIFIER {OUT("param %s\n", findvar($1)->name); $$ = 1;}
-| NEIDList COMMA IDENTIFIER {OUT("param %s\n", findvar($3)->name); $$ = $1+1;}
+NEExprList:
+  Expr {OUT("param %s\n", $1->name); $$ = 1;} %prec EL
+| NEExprList COMMA Expr {OUT("param %s\n", $3->name); $$ = $1+1;} %prec EL
 ;
 
 BOP:

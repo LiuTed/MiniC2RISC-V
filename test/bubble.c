@@ -19,14 +19,11 @@ int main()
 	int t;
 	while(i<n)
 	{
-		t=arr[i];
-		t=putint(t);
-		t=32;
-		t=putchar(t);
+		putint(arr[i]);
+		putchar(' ');
 		i=i+1;
 	}
-	t=10;
-	t=putchar(t);
+	putchar('\n');
 	return 0;
 }
 int bubble(int arr[], int n)

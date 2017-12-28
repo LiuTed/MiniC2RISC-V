@@ -5,7 +5,7 @@ BISON = yacc -d
 FLEX = lex
 DEP = lex.yy.o y.tab.o
 
-all: a.out libminic.a
+all: a.out
 
 a.out: $(DEP)
 	$(CC) $(DEP) $(CFLAGS) $(LINKAGE) -o a.out
@@ -21,10 +21,6 @@ y.tab.cpp: parser.y
 	$(BISON) parser.y
 	mv y.tab.c y.tab.cpp
 
-libminic.a: basic_func.c
-	$(RISCVGCC) basic_func.c -c
-	$(RISCVAR) -q libminic.a basic_func.o
-
 .PHONY: clean
 clean:
-	rm -f a.out y.tab.cpp y.tab.h lex.yy.cpp $(DEP) libminic.a basic_func.o
+	rm -f a.out y.tab.cpp y.tab.h lex.yy.cpp $(DEP)

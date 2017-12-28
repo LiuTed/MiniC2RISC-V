@@ -4,6 +4,8 @@ int putint(int i);
 int getchar();
 int main()
 {
+	int zero = '\x00';
+	putint(zero);
 	int a1;
 	int a2;
 	int a3;
@@ -101,6 +103,6 @@ int main()
 	tmp = putint(a36);
 	tmp = putint(a37);
 	tmp = putint(a38);
-	tmp = 10;
+	tmp = '\n';
 	tmp = putchar(tmp);
 }

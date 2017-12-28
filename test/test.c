@@ -21,16 +21,17 @@ int main() {
 	n = getint();
 	if (n < 0 || n > 60)
 		return 1;
+	char tab = '\t';
 	long c;
-	c = f(n);
-	putint(c);
-	c = 10;
+	putchar(tab);
+	putint(f(n));
+	c = '\n';
 	putchar(c);
 	long d;
+	putchar(tab);
 	d = g(n);
 	putint(d);
-	d = 10;
-	putchar(d);
+	putchar('\n');
 	return 0;
 }
 long f(int x) //comment
@@ -38,11 +39,5 @@ long f(int x) //comment
 	if (x < 2)
 		return 1;
 	else
-	{
-		int a;
-		int b;
-		a = x - 1;
-		b = x - 2;
-		return f(a) + f(b); 
-	}
+		return f(x-1) + f(x-2);
 }/* comment */

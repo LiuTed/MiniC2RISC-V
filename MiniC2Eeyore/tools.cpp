@@ -151,7 +151,7 @@ void CHECKNARROW(_var *dst, _var *ori)
 	if(dst->width() < ori->width())
 		WARNING("narrowing conversion");
 }
-_func* calling(const char* name, int nparas)
+_func* calling(const char* name)
 {
 	for(size_t i = 0; i < flist.size(); i++)
 	{

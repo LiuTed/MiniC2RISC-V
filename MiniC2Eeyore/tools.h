@@ -35,7 +35,7 @@ void outblock();
 _var* addtmp(int type_width);
 _var* findvar(const char* name);
 void CHECKNARROW(_var *dst, _var *ori);
-_func* calling(const char* name, int nparas);
+_func* calling(const char* name);
 
 extern std::stack<_label> labelstack;
 

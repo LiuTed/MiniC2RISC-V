@@ -38,7 +38,7 @@ int yylex();
 %left MUL DIV MOD
 %right LOGIC_NOT MINUS
 
-%type<var> Expr BOP
+%type<var> Expr BOP Dummy1
 %type<IntVal> Type VarDeclList NEVarDeclList ExprList NEExprList
 
 %start S
@@ -211,12 +211,17 @@ Expr:
 	OUT("%s = %s * %d\n", idx->name, $3->name, arr->type_width);
 	OUT("%s = %s [%s, %d]\n", $$->name, arr->name, idx->name, arr->type_width);
 }
-| IDENTIFIER '(' ExprList ')' {
-	_func *f = calling($1, $3);
-	$$ = addtmp(f->type_width);
+| IDENTIFIER '(' Dummy1 {
+	_func *f = calling($1);
+	$3 = addtmp(f->type_width);
+} ExprList ')' {
+	$$ = $3;
 	OUT("%s = call f_%s\n", $$->name, $1);
 }
 | '(' Expr ')' {$$ = $2;}
+;
+
+Dummy1: {$$=NULL;}
 ;
 
 ExprList:
